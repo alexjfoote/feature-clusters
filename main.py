@@ -22,6 +22,8 @@ similar_backward_window = 10
 similar_forward_window = 5
 importance_context = 21
 
+max_examples = 20
+
 show_activation_values = True
 
 with open(f"{model_path}/config.json") as ifh:
@@ -119,7 +121,6 @@ def display_neighbours(layer, neuron, feature_idx):
         cluster_idx = nb_feature_idx - 1
         nb_feature, (central_idx, _) = nb_clusters[cluster_idx]
 
-        # with st.sidebar:
         st.write(f"Layer {nb_layer}, Neuron {nb_neuron}, Feature {nb_feature_idx} (similarity: {sim:.2f})")
         display_feature(
             nb_feature, nb_feature_idx, cluster_idxs=[central_idx], backward_window=similar_backward_window, forward_window=similar_forward_window
@@ -154,7 +155,7 @@ def display_feature(feature, feature_idx, n_examples=None, cluster_idxs=None, ba
         window_end = max_index + forward_window + 1
 
         importance_offset = importance_context - backward_window
-        to_take_off = max(importance_offset, importance_offset + backward_window - max_index)
+        to_take_off = max(importance_offset, importance_offset + backward_window - max_index - 1)
         to_add = forward_window
 
         display_tokens = example_tokens[window_start:window_end]
@@ -163,7 +164,8 @@ def display_feature(feature, feature_idx, n_examples=None, cluster_idxs=None, ba
 
         max_importance = example_importances[-1]
 
-        print(f"{len(display_tokens)=}, {len(display_importances)=}")
+        # Normalise by importance of max activating token and clip to 0 and 1
+        display_importances = [max(0, min(1, importance / max(0.01, max_importance))) for importance in display_importances]
 
         if show_importance:
             values = display_importances
@@ -175,16 +177,15 @@ def display_feature(feature, feature_idx, n_examples=None, cluster_idxs=None, ba
         display_colours = []
         for value in values:
             pigment = int(255 * max(value, 0) / max_value)
-            display_colours.append([str(pigment), "0", "0"])
+            colour_triple = [str(pigment), "0", "0"] if not show_importance else ["0", "0", str(pigment)]
+            display_colours.append(colour_triple)
 
         coloured_text = [
-            (token.replace("$", "\$"), f"{activation:.1f}", f"rgb({', '.join(colour)})") if show_activation_values
+            (token.replace("$", "\$"), f"{value:.1f}", f"rgb({', '.join(colour)})") if show_activation_values
             else (token, "", f"rgb({', '.join(colour)})")
-            for token, activation, colour in zip(display_tokens, display_activations, display_colours)
+            for token, value, colour in zip(display_tokens, values, display_colours)
         ]
         annotated_text(coloured_text)
-
-        # clickable_text(coloured_text, id_string=f"{feature_idx}_{i}")
 
         st.write("---")
 
@@ -227,15 +228,11 @@ if 'neuron' not in st.session_state:
 col1, col2 = st.columns(2)
 
 with col1:
-    # Use session_state for value and on_change callback to update it
-    # layer = st.number_input(f"Select Layer (0 to {layers - 1})", min_value=0, max_value=layers - 1, value=st.session_state['layer'], key='layer_input', on_change=lambda: st.session_state.update(layer=st.session_state['layer_input']))
     layer = st.number_input(
         f"Select Layer (0 to {layers - 1})", min_value=0, max_value=layers - 1, value=st.session_state['layer'],
         key='layer_input'
     )
 with col2:
-    # Use session_state for value and on_change callback to update it
-    # neuron = st.number_input(f"Select Neuron (0 to {neurons - 1})", min_value=0, max_value=neurons - 1, value=st.session_state['neuron'], key='neuron_input', on_change=lambda: st.session_state.update(neuron=st.session_state['neuron_input']))
     neuron = st.number_input(
         f"Select Neuron (0 to {neurons - 1})", min_value=0, max_value=neurons - 1, value=st.session_state['neuron'],
         key='neuron_input'
@@ -257,39 +254,8 @@ if lucky:
     layer = random.randint(0, layers)
     neuron = random.randint(0, neurons)
     update_values()
-    print(f"Lucky: {st.session_state['layer']}, {st.session_state['neuron']}")
-    # Trigger find functionality by setting find to True in session_state
-    st.session_state['find'] = True
     st.rerun()
 
-if show_importance:
-    print(st.session_state.get("find"))
+display_neuron(st.session_state['layer'], st.session_state['neuron'], n_examples=max_examples)
 
-# if find or st.session_state.get('find'):  # Check if find was triggered by button or lucky functionality
-display_neuron(st.session_state['layer'], st.session_state['neuron'])
-    # st.session_state['find'] = False  # Reset the find trigger in session_state
-
-# col1, col2 = st.columns(2)
-#
-# with col1:
-#     layer = st.number_input(f"Select Layer (0 to {layers})", min_value=0, max_value=layers, value=0)
-# with col2:
-#     neuron = st.number_input(f"Select Neuron (0 to {neurons})", min_value=0, max_value=neurons, value=0)
-#
-# find_width = 0.1
-# col1, col2 = st.columns([find_width, 1 - find_width])
-#
-# with col1:
-#     find = st.button("Find")
-# with col2:
-#     lucky = st.button("I'm feeling lucky")
-#
-# if lucky:
-#     layer = random.randint(0, layers)
-#     neuron = random.randint(0, neurons)
-#     print(f"Lucky: {layer}, {neuron}")
-#     find = True
-#
-# if find:
-#     display_neuron(layer, neuron)
 
