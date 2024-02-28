@@ -1,5 +1,4 @@
 streamlit
 torch
 st-annotated-text
-extra-streamlit-components
 streamlit-extras

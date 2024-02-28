@@ -2,16 +2,16 @@ import streamlit as st
 import json
 import torch
 import random
+import uuid
 
-import extra_streamlit_components as stx
-from streamlit_extras.stylable_container import stylable_container
 from annotated_text import annotated_text
+from streamlit_extras.stylable_container import stylable_container
 
 import utils
 
 # ============== CONFIG ==============
 
-st.set_page_config(page_title="GPT2 Neuron Explorer", layout="wide")
+st.set_page_config(page_title="Feature Clusters", layout="wide")
 
 model_name = "gpt2-small"
 model_path = f"models/{model_name}"
@@ -33,24 +33,8 @@ layers = config["layers"]
 neurons = config["neurons"]
 similarity_thresholds = config["similarity_thresholds"]
 
-# ============== LYRICAL STYLINGS ==============
-
-
-# st.markdown("""
-#             <style>
-#                 div[data-testid="column"] {
-#                     width: max-content !important;
-#                     flex: unset;
-#                 }
-#                 div[data-testid="column"] * {
-#                     width: max-content !important;
-#                 }
-#             </style>
-#             """, unsafe_allow_html=True)
-
 
 # ============== UTILS ==============
-
 
 @st.cache_resource
 def load():
@@ -76,36 +60,46 @@ def load():
     return activations, indexing, clusters, examples, neighbours, importances
 
 
-def update_values():
-    st.session_state['layer'] = layer
-    st.session_state['neuron'] = neuron
+def update_previous():
+    element = (st.session_state['layer'], st.session_state['neuron'])
+    if element != st.session_state.get("current"):
+        st.session_state["previous"] = st.session_state.get("current")
+        st.session_state["current"] = (st.session_state["layer"], st.session_state["neuron"])
 
 
-# ============== FUNCTIONALITY ==============
+def update_values(new_layer=None, new_neuron=None):
+    update_previous()
+    st.session_state['layer'] = layer if new_layer is None else new_layer
+    st.session_state['neuron'] = neuron if new_neuron is None else new_neuron
+
+def go_back():
+    update_values(*st.session_state['previous'])
 
 
-def clickable_text(tokens, id_string=""):
-    token_cols = st.columns(len(tokens))
-    for i, (token, _, colour) in enumerate(tokens):
-        with token_cols[i]:
-            render_token(token, colour, token_id=f"{id_string}_{i}")
+def go_forward():
+    if st.session_state['history_index'] < len(st.session_state['history']) - 1:
+        st.session_state['history_index'] += 1
+        update_values(*st.session_state['history'][st.session_state['history_index']], add_to_history=False)
 
 
-def render_token(token, colour, token_id="0"):
+def clickable_text(text, callback, *args):
     with stylable_container(
-        key=f"token_{token_id}",
+        key="clickable",
         css_styles=f"""
         button {{
-            background-color: {colour};
+            background-color: #0e1117;
             color: white;
             border: none;
-            padding: 0px 6px;
-            margin: -4px -8px;
+            cursor: pointer;
+            padding: 0!important;
+            text-decoration: underline;
         }}
         """
     ):
-        return st.button(token, key=f'button_{token_id}')
+        st.button(text, on_click=callback, args=args, key=str(uuid.uuid4()))
 
+
+# ============== FUNCTIONALITY ==============
 
 def display_neighbours(layer, neuron, feature_idx):
     feature_neighbours = sorted(
@@ -121,13 +115,15 @@ def display_neighbours(layer, neuron, feature_idx):
         cluster_idx = nb_feature_idx - 1
         nb_feature, (central_idx, _) = nb_clusters[cluster_idx]
 
-        st.write(f"Layer {nb_layer}, Neuron {nb_neuron}, Feature {nb_feature_idx} (similarity: {sim:.2f})")
+        neighbour_label = f"Layer {nb_layer}, Neuron {nb_neuron}, Feature {nb_feature_idx} (similarity: {sim:.2f})"
+        # st.write()
+        clickable_text(neighbour_label, update_values, nb_layer, nb_neuron)
         display_feature(
-            nb_feature, nb_feature_idx, cluster_idxs=[central_idx], backward_window=similar_backward_window, forward_window=similar_forward_window
+            nb_feature, cluster_idxs=[central_idx], backward_window=similar_backward_window, forward_window=similar_forward_window
         )
 
 
-def display_feature(feature, feature_idx, n_examples=None, cluster_idxs=None, backward_window=backward_window, forward_window=forward_window):
+def display_feature(feature, n_examples=None, cluster_idxs=None, backward_window=backward_window, forward_window=forward_window):
     for i, (cluster_idx, element_idxs) in enumerate(feature):
         if n_examples is not None and i >= n_examples:
             break
@@ -204,11 +200,11 @@ def display_neuron(layer, neuron, n_examples=None):
         feature_idx = cluster_idx + 1
 
         with tab:
-            feature_col_width = 0.7
+            feature_col_width = 0.68
             feature_col, neighbour_col = st.columns([feature_col_width, 1 - feature_col_width])
 
             with feature_col:
-                display_feature(cluster, feature_idx, n_examples=n_examples)
+                display_feature(cluster, n_examples=n_examples)
 
             with neighbour_col:
                 st.write(f"### Similar Features")
@@ -217,45 +213,64 @@ def display_neuron(layer, neuron, n_examples=None):
 
 # ============== MAIN ==============
 
+st.title("Feature Clusters")
+st.caption("Explore features learned by GPT2-small")
+st.caption("Made by Alex Foote")
+
 activations, indexing, clusters, examples, neighbours, importances = load()
 
-# Initialize or update session state for layer and neuron
-if 'layer' not in st.session_state:
-    st.session_state['layer'] = 0
-if 'neuron' not in st.session_state:
-    st.session_state['neuron'] = 0
+explore_tab, about_tab = st.tabs(["Explore", "About"])
 
-col1, col2 = st.columns(2)
+with explore_tab:
+    if 'layer' not in st.session_state:
+        st.session_state['layer'] = random.randint(0, layers - 1)
+    if 'neuron' not in st.session_state:
+        st.session_state['neuron'] = random.randint(0, layers - 1)
+    if 'previous' not in st.session_state:
+        st.session_state['previous'] = (st.session_state['layer'], st.session_state['neuron'])
+    if 'current' not in st.session_state:
+        st.session_state['current'] = (st.session_state['layer'], st.session_state['neuron'])
 
-with col1:
-    layer = st.number_input(
-        f"Select Layer (0 to {layers - 1})", min_value=0, max_value=layers - 1, value=st.session_state['layer'],
-        key='layer_input'
-    )
-with col2:
-    neuron = st.number_input(
-        f"Select Neuron (0 to {neurons - 1})", min_value=0, max_value=neurons - 1, value=st.session_state['neuron'],
-        key='neuron_input'
-    )
+    width = 0.34
+    col1, col2, _ = st.columns([width, width, 1 - width - width])
 
-width_1, width_2 = 0.07, 0.15
-col1, col2, col3 = st.columns([width_1, width_2, 1 - width_1 - width_2])
+    with col1:
+        layer = st.number_input(
+            f"Select Layer (0 to {layers - 1})", min_value=0, max_value=layers - 1, value=st.session_state['layer'],
+            key='layer_input'
+        )
+    with col2:
+        neuron = st.number_input(
+            f"Select Neuron (0 to {neurons - 1})", min_value=0, max_value=neurons - 1, value=st.session_state['neuron'],
+            key='neuron_input'
+        )
 
+    width_1, width_2, width_3 = 0.07, 0.14, 0.1
+    col1, col2, col3 = st.columns([width_1, width_2, 1 - width_1 - width_2])
 
-with col1:
-    find = st.button("Find", key="find", on_click=update_values())
-with col2:
-    lucky = st.button("I'm feeling lucky")
-with col3:
+    with col1:
+        find = st.button("Find", key="find", on_click=update_values())
+    with col2:
+        lucky = st.button("I'm feeling lucky")
+    with col3:
+        backtrack = st.button("Backtrack")
+
     show_importance = st.toggle("Show Token Importance")
 
-if lucky:
-    # Update session_state values instead of local variables
-    layer = random.randint(0, layers)
-    neuron = random.randint(0, neurons)
-    update_values()
-    st.rerun()
+    if lucky:
+        layer = random.randint(0, layers - 1)
+        neuron = random.randint(0, neurons - 1)
+        update_values()
+        st.rerun()
 
-display_neuron(st.session_state['layer'], st.session_state['neuron'], n_examples=max_examples)
+    if backtrack:
+        go_back()
+        st.rerun()
 
+    display_neuron(st.session_state['layer'], st.session_state['neuron'], n_examples=max_examples)
+
+with about_tab:
+    st.write("### How-to")
+    st.write("### Motivation")
+    st.write("### Technical Details")
 
