@@ -33,6 +33,9 @@ layers = config["layers"]
 neurons = config["neurons"]
 similarity_thresholds = config["similarity_thresholds"]
 
+with open("README.md") as ifh:
+    readme = "\n".join(ifh.readlines()[4:])
+
 
 # ============== UTILS ==============
 
@@ -208,6 +211,7 @@ def display_neuron(layer, neuron, n_examples=None):
 
             with neighbour_col:
                 st.write(f"### Similar Features")
+                st.caption("Click a link to visit that neuron")
                 display_neighbours(layer, neuron, feature_idx)
 
 
@@ -223,9 +227,9 @@ explore_tab, about_tab = st.tabs(["Explore", "About"])
 
 with explore_tab:
     if 'layer' not in st.session_state:
-        st.session_state['layer'] = random.randint(0, layers - 1)
+        st.session_state['layer'] = 0
     if 'neuron' not in st.session_state:
-        st.session_state['neuron'] = random.randint(0, layers - 1)
+        st.session_state['neuron'] = 0
     if 'previous' not in st.session_state:
         st.session_state['previous'] = (st.session_state['layer'], st.session_state['neuron'])
     if 'current' not in st.session_state:
@@ -249,11 +253,11 @@ with explore_tab:
     col1, col2 = st.columns([width_1, 1 - width_1])
 
     with col1:
-        lucky = st.button("I'm feeling lucky")
+        lucky = st.button("I'm feeling lucky", help="Visit a random neuron")
     with col2:
-        backtrack = st.button("Backtrack")
+        backtrack = st.button("Backtrack", help="Go back to the last visited neuron")
 
-    show_importance = st.toggle("Show Token Importance")
+    show_importance = st.toggle("Show Token Importance", help="View the importance of each token for neuron activation on the max activating token")
 
     if lucky:
         layer = random.randint(0, layers - 1)
@@ -265,10 +269,8 @@ with explore_tab:
         go_back()
         st.rerun()
 
+    update_values()
     display_neuron(st.session_state['layer'], st.session_state['neuron'], n_examples=max_examples)
 
 with about_tab:
-    st.write("### How-to")
-    st.write("### Motivation")
-    st.write("### Technical Details")
-
+    st.write(readme)
