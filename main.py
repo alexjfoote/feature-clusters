@@ -200,7 +200,7 @@ def display_neuron(layer, neuron, n_examples=None):
         feature_idx = cluster_idx + 1
 
         with tab:
-            feature_col_width = 0.7
+            feature_col_width = 0.65
             feature_col, neighbour_col = st.columns([feature_col_width, 1 - feature_col_width])
 
             with feature_col:
@@ -231,7 +231,7 @@ with explore_tab:
     if 'current' not in st.session_state:
         st.session_state['current'] = (st.session_state['layer'], st.session_state['neuron'])
 
-    width = 0.35
+    width = 0.31
     col1, col2, _ = st.columns([width, width, 1 - width - width])
 
     with col1:
@@ -245,14 +245,12 @@ with explore_tab:
             key='neuron_input'
         )
 
-    width_1, width_2, width_3 = 0.07, 0.14, 0.1
-    col1, col2, col3 = st.columns([width_1, width_2, 1 - width_1 - width_2])
+    width_1 = 0.13
+    col1, col2 = st.columns([width_1, 1 - width_1])
 
     with col1:
-        find = st.button("Find", key="find", on_click=update_values())
-    with col2:
         lucky = st.button("I'm feeling lucky")
-    with col3:
+    with col2:
         backtrack = st.button("Backtrack")
 
     show_importance = st.toggle("Show Token Importance")
