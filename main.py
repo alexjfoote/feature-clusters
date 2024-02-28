@@ -72,6 +72,7 @@ def update_values(new_layer=None, new_neuron=None):
     st.session_state['layer'] = layer if new_layer is None else new_layer
     st.session_state['neuron'] = neuron if new_neuron is None else new_neuron
 
+
 def go_back():
     update_values(*st.session_state['previous'])
 
@@ -115,8 +116,7 @@ def display_neighbours(layer, neuron, feature_idx):
         cluster_idx = nb_feature_idx - 1
         nb_feature, (central_idx, _) = nb_clusters[cluster_idx]
 
-        neighbour_label = f"Layer {nb_layer}, Neuron {nb_neuron}, Feature {nb_feature_idx} (similarity: {sim:.2f})"
-        # st.write()
+        neighbour_label = f"Layer {nb_layer}, Neuron {nb_neuron}, Feature {nb_feature_idx}"
         clickable_text(neighbour_label, update_values, nb_layer, nb_neuron)
         display_feature(
             nb_feature, cluster_idxs=[central_idx], backward_window=similar_backward_window, forward_window=similar_forward_window
@@ -200,7 +200,7 @@ def display_neuron(layer, neuron, n_examples=None):
         feature_idx = cluster_idx + 1
 
         with tab:
-            feature_col_width = 0.68
+            feature_col_width = 0.7
             feature_col, neighbour_col = st.columns([feature_col_width, 1 - feature_col_width])
 
             with feature_col:
@@ -231,7 +231,7 @@ with explore_tab:
     if 'current' not in st.session_state:
         st.session_state['current'] = (st.session_state['layer'], st.session_state['neuron'])
 
-    width = 0.34
+    width = 0.35
     col1, col2, _ = st.columns([width, width, 1 - width - width])
 
     with col1:
