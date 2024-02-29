@@ -29,7 +29,7 @@ I ran 10,000 dataset examples from [OpenWebText](https://skylion007.github.io/Op
 For each neuron, I collected any example that activated the model more than 0.75x the maximum activation of the neuron (as measured on a much larger dataset, using information from [Neuroscope](https://neuroscope.io/index.html)).
 
 ### Feature Embeddings
-For each neuron-example pair, I collected the embedding of the max activating token directly before the MLP layer containing the neuron. I then create **feature embedding** for the example, by taking the Hadamard (element-wise) product of the max token embedding and neuron's input weights.
+For each neuron-example pair, I collected the embedding of the max activating token directly before the MLP layer containing the neuron. I then create a **feature embedding** for the example, by taking the Hadamard (element-wise) product of the max token embedding and neuron's input weights.
 
 The intuition behind this is that the pre-neuron embedding of the max activating token is exactly what caused the neuron to activate, and the neuron's input weights are what the neuron is "looking for" in that embedding. The operation to produce the neuron activation is the dot product of the embedding and weights - the sum of the Hadamard product. So the Hadamard product of the embedding and weights is therefore very closely linked to the neuron's activation, and so should be a good representation of the feature that the neuron is responding to.
 

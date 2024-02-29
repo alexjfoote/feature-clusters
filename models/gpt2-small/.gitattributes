@@ -5,3 +5,4 @@ examples.json filter=lfs diff=lfs merge=lfs -text
 importances.pt filter=lfs diff=lfs merge=lfs -text
 indexing.json filter=lfs diff=lfs merge=lfs -text
 neighbours.json filter=lfs diff=lfs merge=lfs -text
+activations_windowed.pt filter=lfs diff=lfs merge=lfs -text

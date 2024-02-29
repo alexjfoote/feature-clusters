@@ -21,6 +21,7 @@ forward_window = 10
 similar_backward_window = 10
 similar_forward_window = 5
 importance_context = 21
+applied_backward_window = 20
 
 max_examples = 20
 
@@ -41,10 +42,6 @@ with open("README.md") as ifh:
 
 @st.cache_resource
 def load():
-    with open(f"{model_path}/indexing.json") as ifh:
-        indexing = json.load(ifh)
-        indexing = {k: utils.to_dict(v) for k, v in indexing.items()}
-
     with open(f"{model_path}/clusters.json") as ifh:
         clusters = json.load(ifh)
         clusters = utils.to_dict(clusters)
@@ -56,11 +53,11 @@ def load():
         neighbours = json.load(ifh)
         neighbours = utils.to_dict(neighbours)
 
-    activations = torch.load(f"{model_path}/activations.pt")
+    activations = torch.load(f"{model_path}/activations_windowed.pt")
 
     importances = torch.load(f"{model_path}/importances.pt")
 
-    return activations, indexing, clusters, examples, neighbours, importances
+    return activations, clusters, examples, neighbours, importances
 
 
 def update_previous():
@@ -78,12 +75,6 @@ def update_values(new_layer=None, new_neuron=None):
 
 def go_back():
     update_values(*st.session_state['previous'])
-
-
-def go_forward():
-    if st.session_state['history_index'] < len(st.session_state['history']) - 1:
-        st.session_state['history_index'] += 1
-        update_values(*st.session_state['history'][st.session_state['history_index']], add_to_history=False)
 
 
 def clickable_text(text, callback, *args):
@@ -148,17 +139,31 @@ def display_feature(feature, n_examples=None, cluster_idxs=None, backward_window
         example_activations = activations[activation_idx]
         example_importances = importances[importance_idx]
 
-        max_activation, max_index = torch.max(example_activations, 0)
+        if applied_backward_window is None:
+            max_activation, max_index = torch.max(example_activations, 0)
+        else:
+            offset = example_activations[-1].item()
+            example_activations = example_activations[:-1]
+            max_activation, max_index = torch.max(example_activations, 0)
+            max_index = max_index.item()
+            max_index += offset
+            max_index = int(max_index)
+            window_offset = max(min(applied_backward_window, max_index + 1) - backward_window, 0)
 
         window_start = max(0, max_index - backward_window + 1)
         window_end = max_index + forward_window + 1
+
+        display_tokens = example_tokens[window_start:window_end]
+
+        if applied_backward_window is None:
+            display_activations = list(example_activations[window_start:window_end])
+        else:
+            display_activations = list(example_activations[window_offset:])
 
         importance_offset = importance_context - backward_window
         to_take_off = max(importance_offset, importance_offset + backward_window - max_index - 1)
         to_add = forward_window
 
-        display_tokens = example_tokens[window_start:window_end]
-        display_activations = list(example_activations[window_start:window_end])
         display_importances = list(example_importances[to_take_off:]) + [0] * to_add
 
         max_importance = example_importances[-1]
@@ -221,7 +226,7 @@ st.title("Feature Clusters")
 st.caption("Explore features learned by GPT2-small")
 st.caption("Made by Alex Foote")
 
-activations, indexing, clusters, examples, neighbours, importances = load()
+activations, clusters, examples, neighbours, importances = load()
 
 explore_tab, about_tab = st.tabs(["Explore", "About"])
 
