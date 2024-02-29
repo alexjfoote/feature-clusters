@@ -3,11 +3,12 @@ import json
 import torch
 import random
 import uuid
+import sqlite3
+
+import numpy as np
 
 from annotated_text import annotated_text
 from streamlit_extras.stylable_container import stylable_container
-
-import utils
 
 # ============== CONFIG ==============
 
@@ -42,22 +43,26 @@ with open("README.md") as ifh:
 
 @st.cache_resource
 def load():
-    with open(f"{model_path}/clusters.json") as ifh:
-        clusters = json.load(ifh)
-        clusters = utils.to_dict(clusters)
+    conn = sqlite3.connect(f"{model_path}/data.db", check_same_thread=False)
+    c = conn.cursor()
+    return c
 
-    with open(f"{model_path}/examples.json") as ifh:
-        examples = json.load(ifh)
 
-    with open(f"{model_path}/neighbours.json") as ifh:
-        neighbours = json.load(ifh)
-        neighbours = utils.to_dict(neighbours)
+def bytes_to_np(blob):
+    return np.frombuffer(blob, dtype=np.float16)
 
-    activations = torch.load(f"{model_path}/activations_windowed.pt")
 
-    importances = torch.load(f"{model_path}/importances.pt")
+def get(table, _id, converter=json.loads):
+    cursor.execute(f"SELECT details FROM {table} WHERE id=?", (_id,))
+    value = cursor.fetchone()
+    if value is None:
+        return []
+    value = value[0]
+    return converter(value) if converter is not None else value
 
-    return activations, clusters, examples, neighbours, importances
+
+def to_id(*args):
+    return "_".join(str(arg) for arg in args)
 
 
 def update_previous():
@@ -98,15 +103,14 @@ def clickable_text(text, callback, *args):
 
 def display_neighbours(layer, neuron, feature_idx):
     feature_neighbours = sorted(
-        neighbours.get((layer, neuron, feature_idx), []), key=lambda x: x[1], reverse=True
+        get("neighbours", to_id(layer, neuron, feature_idx)), key=lambda x: x[1], reverse=True
     )
 
     for (nb_layer, nb_neuron, nb_feature_idx), sim in feature_neighbours:
         if sim < similarity_thresholds[str(layer)]:
             break
 
-        nb_neuron_id = (nb_layer, nb_neuron)
-        nb_clusters = clusters.get(nb_neuron_id, [])
+        nb_clusters = get("clusters", to_id(nb_layer, nb_neuron))
         cluster_idx = nb_feature_idx - 1
         nb_feature, (central_idx, _) = nb_clusters[cluster_idx]
 
@@ -135,9 +139,9 @@ def display_feature(feature, n_examples=None, cluster_idxs=None, backward_window
                 return
             importance_idx = 0
 
-        example_tokens = examples[example_idx]
-        example_activations = activations[activation_idx]
-        example_importances = importances[importance_idx]
+        example_tokens = get("examples", example_idx)
+        example_activations = torch.tensor(get("activations", activation_idx, bytes_to_np))
+        example_importances = torch.tensor(get("importances", importance_idx, bytes_to_np))
 
         if applied_backward_window is None:
             max_activation, max_index = torch.max(example_activations, 0)
@@ -195,8 +199,7 @@ def display_feature(feature, n_examples=None, cluster_idxs=None, backward_window
 
 
 def display_neuron(layer, neuron, n_examples=None):
-    neuron_id = (layer, neuron)
-    neuron_clusters = clusters.get(neuron_id, [])
+    neuron_clusters = get("clusters", to_id(layer, neuron))
 
     if len(neuron_clusters) == 0:
         st.write("No examples available")
@@ -226,7 +229,7 @@ st.title("Feature Clusters")
 st.caption("Explore features learned by GPT2-small")
 st.caption("Made by Alex Foote")
 
-activations, clusters, examples, neighbours, importances = load()
+cursor = load()
 
 explore_tab, about_tab = st.tabs(["Explore", "About"])
 
