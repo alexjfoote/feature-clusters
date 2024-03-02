@@ -176,7 +176,7 @@ def display_feature(feature, n_examples=None, cluster_idxs=None, backward_window
 
         display_importances = list(example_importances[to_take_off:]) + [0] * to_add
 
-        max_importance = example_importances[-1]
+        max_importance = torch.max(example_importances)
 
         # Normalise by importance of max activating token and clip to 0 and 1
         display_importances = [max(0, min(1, importance / max(0.01, max_importance))) for importance in display_importances]
