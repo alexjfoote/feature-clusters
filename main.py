@@ -99,6 +99,12 @@ def clickable_text(text, callback, *args):
         st.button(text, on_click=callback, args=args, key=str(uuid.uuid4()))
 
 
+def escape(token):
+    token = token.replace("\\", r"\\")
+    token = token.replace("$", "\$")
+    return token
+
+
 # ============== FUNCTIONALITY ==============
 
 def display_neighbours(layer, neuron, feature_idx):
@@ -177,7 +183,7 @@ def display_feature(feature, n_examples=None, cluster_idxs=None, backward_window
 
         if show_importance:
             values = display_importances
-            max_value = max_importance
+            max_value = 1
         else:
             values = display_activations
             max_value = max_activation
@@ -189,7 +195,7 @@ def display_feature(feature, n_examples=None, cluster_idxs=None, backward_window
             display_colours.append(colour_triple)
 
         coloured_text = [
-            (token.replace("$", "\$"), f"{value:.1f}", f"rgb({', '.join(colour)})") if show_activation_values
+            (escape(token), f"{value:.1f}", f"rgb({', '.join(colour)})") if show_activation_values
             else (token, "", f"rgb({', '.join(colour)})")
             for token, value, colour in zip(display_tokens, values, display_colours)
         ]
