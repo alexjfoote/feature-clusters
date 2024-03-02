@@ -241,9 +241,9 @@ explore_tab, about_tab = st.tabs(["Explore", "About"])
 
 with explore_tab:
     if 'layer' not in st.session_state:
-        st.session_state['layer'] = 0
+        st.session_state['layer'] = random.randint(0, layers - 1)
     if 'neuron' not in st.session_state:
-        st.session_state['neuron'] = 0
+        st.session_state['neuron'] = random.randint(0, neurons - 1)
     if 'previous' not in st.session_state:
         st.session_state['previous'] = (st.session_state['layer'], st.session_state['neuron'])
     if 'current' not in st.session_state:
